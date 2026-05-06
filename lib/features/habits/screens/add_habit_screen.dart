@@ -1,210 +1,296 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../models/habit.dart';
 
-/// The overlay screen that allows users to create a new habit.
-/// It uses a Modal Bottom Sheet style to slide up from the bottom.
 class AddHabitScreen extends StatefulWidget {
-  const AddHabitScreen({super.key});
+  final Habit? habitToEdit;
+  const AddHabitScreen({super.key, this.habitToEdit});
 
   @override
   State<AddHabitScreen> createState() => _AddHabitScreenState();
 }
 
 class _AddHabitScreenState extends State<AddHabitScreen> {
-  // Controllers manage the text being typed into the fields.
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   
-  // Default values for a new habit.
-  Color _selectedColor = Colors.green;
+  Color _selectedColor = Colors.blueAccent;
   FrequencyType _freqType = FrequencyType.fixed;
-  List<int> _selectedDays = [1, 2, 3, 4, 5, 6, 7]; // Default: Every day
-  int _flexCount = 3;                             // Default: 3 times a week
+  List<int> _selectedDays = [1, 2, 3, 4, 5, 6, 7];
+  int _flexCount = 3;
 
-  // Available colors for the user to pick from.
+  @override
+  void initState() {
+    super.initState();
+    if (widget.habitToEdit != null) {
+      final h = widget.habitToEdit!;
+      _nameController.text = h.name;
+      _descController.text = h.description ?? '';
+      _selectedColor = Color(h.colorValue);
+      _freqType = h.frequencyType;
+      _selectedDays = List.from(h.fixedDays ?? [1, 2, 3, 4, 5, 6, 7]);
+      _flexCount = h.flexibleCount ?? 3;
+    }
+  }
+
   final List<Color> _colors = [
-    Colors.green, Colors.blue, Colors.red, Colors.orange, 
-    Colors.purple, Colors.teal, Colors.pink, Colors.indigo
+    Colors.blueAccent, Colors.greenAccent, Colors.redAccent, 
+    Colors.orangeAccent, Colors.purpleAccent, Colors.tealAccent, 
+    Colors.pinkAccent, Colors.indigoAccent
   ];
 
-  // Labels for the week days.
   final List<String> _weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      // Styling the container to look like a modern card.
       padding: EdgeInsets.only(
         top: 20,
         left: 20,
         right: 20,
-        // Shifts the UI up when the keyboard appears.
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        color: Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SingleChildScrollView(
         child: Column(
-          mainAxisSize: MainAxisSize.min, // Takes only the space needed.
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // The small "drag handle" icon at the top.
             Center(
               child: Container(
                 width: 40,
                 height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
+                margin: const EdgeInsets.only(bottom: 24),
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: Colors.white12,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
             
-            const Text(
-              'Add New Habit',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-
-            // HABIT NAME INPUT
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Habit Name',
-                border: OutlineInputBorder(),
-                filled: true,
-                fillColor: Color(0xFFF5F5F5),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // DESCRIPTION INPUT
-            TextField(
-              controller: _descController,
-              decoration: const InputDecoration(
-                labelText: 'Description (Optional)',
-                border: OutlineInputBorder(),
-                filled: true,
-                fillColor: Color(0xFFF5F5F5),
+            Text(
+              widget.habitToEdit == null ? 'New Habit' : 'Edit Habit',
+              style: GoogleFonts.lexend(
+                fontSize: 24, 
+                fontWeight: FontWeight.w700, 
+                color: Colors.white
               ),
             ),
             const SizedBox(height: 24),
 
-            // COLOR PICKER
-            const Text('Color', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            _buildTextField(_nameController, 'Habit Name', Icons.edit_rounded),
+            const SizedBox(height: 16),
+            _buildTextField(_descController, 'Description (Optional)', Icons.notes_rounded),
+            
+            const SizedBox(height: 24),
+            _buildSectionTitle('Color'),
+            const SizedBox(height: 12),
             SizedBox(
-              height: 50,
+              height: 45,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: _colors.length,
                 itemBuilder: (context, index) {
+                  final isSelected = _selectedColor == _colors[index];
                   return GestureDetector(
                     onTap: () => setState(() => _selectedColor = _colors[index]),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 10),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(right: 12),
                       width: 40,
                       decoration: BoxDecoration(
                         color: _colors[index],
                         shape: BoxShape.circle,
-                        border: _selectedColor == _colors[index] 
-                            ? Border.all(width: 3, color: Colors.black) 
+                        border: isSelected 
+                            ? Border.all(width: 3, color: Colors.white) 
                             : null,
+                        boxShadow: isSelected ? [
+                          BoxShadow(color: _colors[index].withValues(alpha: 0.4), blurRadius: 8, spreadRadius: 2)
+                        ] : null,
                       ),
                     ),
                   );
                 },
               ),
             ),
+
             const SizedBox(height: 24),
-
-            // FREQUENCY SETTINGS
-            const Text('Frequency', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            SegmentedButton<FrequencyType>(
-              segments: const [
-                ButtonSegment(value: FrequencyType.fixed, label: Text('Fixed')),
-                ButtonSegment(value: FrequencyType.flexible, label: Text('Flexible')),
+            _buildSectionTitle('Frequency'),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _buildFrequencyChip(FrequencyType.fixed, 'Fixed Days'),
+                const SizedBox(width: 12),
+                _buildFrequencyChip(FrequencyType.flexible, 'Flexible'),
               ],
-              selected: {_freqType},
-              onSelectionChanged: (val) => setState(() => _freqType = val.first),
             ),
-            const SizedBox(height: 16),
+            
+            const SizedBox(height: 20),
+            if (_freqType == FrequencyType.fixed) 
+              _buildDayPicker()
+            else 
+              _buildFlexPicker(),
 
-            // DYNAMIC INPUTS (Shows either Day Picker or Slider)
-            if (_freqType == FrequencyType.fixed) ...[
-              Wrap(
-                spacing: 8,
-                children: List.generate(7, (index) {
-                  final day = index + 1; // 1 = Mon, 7 = Sun
-                  final isSelected = _selectedDays.contains(day);
-                  return ChoiceChip(
-                    label: Text(_weekDays[index]),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        selected ? _selectedDays.add(day) : _selectedDays.remove(day);
-                      });
-                    },
-                  );
-                }),
-              )
-            ] else ...[
-              Row(
-                children: [
-                  const Text('Times per week: '),
-                  Expanded(
-                    child: Slider(
-                      value: _flexCount.toDouble(),
-                      min: 1,
-                      max: 7,
-                      divisions: 6,
-                      label: _flexCount.toString(),
-                      onChanged: (val) => setState(() => _flexCount = val.toInt()),
-                    ),
-                  ),
-                  Text('$_flexCount', style: const TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              )
-            ],
             const SizedBox(height: 32),
 
-            // SAVE BUTTON
             SizedBox(
               width: double.infinity,
+              height: 55,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _selectedColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                onPressed: () {
-                  // Only save if a name has been entered.
-                  if (_nameController.text.isNotEmpty) {
-                    final newHabit = Habit(
-                      id: DateTime.now().toString(),
-                      name: _nameController.text,
-                      description: _descController.text,
-                      colorValue: _selectedColor.value,
-                      frequencyType: _freqType,
-                      fixedDays: _freqType == FrequencyType.fixed ? _selectedDays : null,
-                      flexibleCount: _freqType == FrequencyType.flexible ? _flexCount : null,
-                    );
-                    
-                    // Closes the overlay and "returns" the new habit to the main screen.
-                    Navigator.pop(context, newHabit);
-                  }
-                },
-                child: const Text('Save Habit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                onPressed: _saveHabit,
+                child: Text(
+                  widget.habitToEdit == null ? 'Start Habit' : 'Update Habit',
+                  style: GoogleFonts.lexend(fontSize: 18, fontWeight: FontWeight.w600)
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon) {
+    return TextField(
+      controller: controller,
+      style: GoogleFonts.lexend(color: Colors.white),
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon, color: Colors.white38, size: 20),
+        labelText: label,
+        labelStyle: GoogleFonts.lexend(color: Colors.white38),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.05),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: _selectedColor.withValues(alpha: 0.5)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.lexend(
+        fontSize: 16, 
+        fontWeight: FontWeight.w600, 
+        color: Colors.white70
+      ),
+    );
+  }
+
+  Widget _buildFrequencyChip(FrequencyType type, String label) {
+    final isSelected = _freqType == type;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _freqType = type),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? _selectedColor : Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: GoogleFonts.lexend(
+              color: isSelected ? Colors.white : Colors.white38,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDayPicker() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(7, (index) {
+        final day = index + 1;
+        final isSelected = _selectedDays.contains(day);
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              isSelected ? _selectedDays.remove(day) : _selectedDays.add(day);
+            });
+          },
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: isSelected ? _selectedColor.withValues(alpha: 0.2) : Colors.transparent,
+              border: Border.all(
+                color: isSelected ? _selectedColor : Colors.white12,
+                width: 1.5,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              _weekDays[index],
+              style: GoogleFonts.lexend(
+                color: isSelected ? _selectedColor : Colors.white38,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildFlexPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Times per week', style: GoogleFonts.lexend(color: Colors.white38)),
+            Text('$_flexCount', style: GoogleFonts.lexend(color: _selectedColor, fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        Slider(
+          value: _flexCount.toDouble(),
+          min: 1,
+          max: 7,
+          divisions: 6,
+          activeColor: _selectedColor,
+          inactiveColor: Colors.white12,
+          onChanged: (val) => setState(() => _flexCount = val.toInt()),
+        ),
+      ],
+    );
+  }
+
+  void _saveHabit() {
+    if (_nameController.text.isNotEmpty) {
+      final habit = Habit(
+        id: widget.habitToEdit?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        name: _nameController.text,
+        description: _descController.text,
+        colorValue: _selectedColor.value,
+        frequencyType: _freqType,
+        fixedDays: _freqType == FrequencyType.fixed ? _selectedDays : null,
+        flexibleCount: _freqType == FrequencyType.flexible ? _flexCount : null,
+        completedDays: widget.habitToEdit?.completedDays ?? [],
+      );
+      Navigator.pop(context, habit);
+    }
   }
 }

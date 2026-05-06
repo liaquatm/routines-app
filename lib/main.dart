@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'navigation/main_nav_bar.dart';
 
-/// The entry point of the entire application.
 void main() {
   runApp(const MyApp());
 }
 
-/// MyApp is the root widget of your application.
-/// It sets up the high-level configuration like the App Name, Theme, and Home Screen.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -15,18 +13,18 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Habit Tracker',
-      
-      // Hides the "Debug" banner in the top-right corner.
       debugShowCheckedModeBanner: false,
-      
-      // Theme defines the global look and feel (colors, fonts, etc.)
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        useMaterial3: true, // Uses the latest Android design standards.
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blueAccent,
+          brightness: Brightness.dark,
+          surface: const Color(0xFF1E1E1E),
+        ),
+        textTheme: GoogleFonts.lexendTextTheme(ThemeData.dark().textTheme),
+        useMaterial3: true,
       ),
-      
-      // The first screen the user sees when they open the app.
-      // We point this to our navigation skeleton.
       home: const MainNavigationScreen(),
     );
   }

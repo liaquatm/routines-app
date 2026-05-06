@@ -70,6 +70,25 @@ class HabitService {
     );
   }
 
+  /// Updates an existing habit definition.
+  Future<void> updateHabit(Habit habit) async {
+    final db = await dbService.database;
+    await db.update(
+      'habit_definitions',
+      {
+        'name': habit.name,
+        'description': habit.description,
+        'iconName': habit.iconName,
+        'colorValue': habit.colorValue,
+        'frequencyType': habit.frequencyType.index,
+        'flexibleCount': habit.flexibleCount,
+        'fixedDays': habit.fixedDays?.join(','),
+      },
+      where: 'id = ?',
+      whereArgs: [habit.id],
+    );
+  }
+
   /// Logs a completion for a specific habit.
   Future<void> logCompletion(String habitId, DateTime date) async {
     final db = await dbService.database;

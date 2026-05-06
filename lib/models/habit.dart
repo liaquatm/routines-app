@@ -33,30 +33,38 @@ class Habit {
     List<DateTime>? completedDays,
   }) : completedDays = completedDays ?? [];
 
+  /// Logic: Checks if the habit was completed on a specific date.
+  bool isCompletedOn(DateTime date) {
+    return completedDays.any((d) => 
+      d.year == date.year && 
+      d.month == date.month && 
+      d.day == date.day
+    );
+  }
+
   /// Logic: Checks if the habit was completed today.
   bool isCompletedToday() {
-    DateTime today = DateTime.now();
-    return completedDays.any((date) => 
-      date.year == today.year && 
-      date.month == today.month && 
-      date.day == today.day
-    );
+    return isCompletedOn(DateTime.now());
+  }
+
+  /// Logic: Adds or removes a completion log for a specific date.
+  void toggleOn(DateTime date) {
+    DateTime dateStart = DateTime(date.year, date.month, date.day);
+    
+    if (isCompletedOn(date)) {
+      completedDays.removeWhere((d) => 
+        d.year == date.year && 
+        d.month == date.month && 
+        d.day == date.day
+      );
+    } else {
+      completedDays.add(dateStart);
+    }
   }
 
   /// Logic: Adds today to the list if not completed, or removes it if already done.
   void toggleToday() {
-    DateTime today = DateTime.now();
-    DateTime todayStart = DateTime(today.year, today.month, today.day);
-    
-    if (isCompletedToday()) {
-      completedDays.removeWhere((date) => 
-        date.year == today.year && 
-        date.month == today.month && 
-        date.day == today.day
-      );
-    } else {
-      completedDays.add(todayStart);
-    }
+    toggleOn(DateTime.now());
   }
 
   /// Logic: Calculates the current completion streak.
