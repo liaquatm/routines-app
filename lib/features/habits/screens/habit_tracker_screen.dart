@@ -22,6 +22,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   late PageController _pageController;
   final int _initialPage = 1000;
   int _currentPage = 1000;
+  bool _isCalendarVisible = false;
 
   @override
   void initState() {
@@ -101,6 +102,17 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
         ),
         actions: [
           IconButton(
+            icon: Icon(
+              _isCalendarVisible ? Icons.calendar_today : Icons.calendar_month,
+              color: _isCalendarVisible ? Colors.blueAccent : Colors.white70,
+            ),
+            onPressed: () {
+              setState(() {
+                _isCalendarVisible = !_isCalendarVisible;
+              });
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.grid_view_rounded, color: Colors.white70),
             onPressed: _navigateToManageHabits,
           ),
@@ -108,13 +120,61 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
-          : PageView.builder(
-              controller: _pageController,
-              onPageChanged: (page) => setState(() => _currentPage = page),
-              itemBuilder: (context, index) {
-                final date = _getDateForPage(index);
-                return _buildHabitPage(date);
-              },
+          : Column(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeInOut,
+                  height: _isCalendarVisible ? MediaQuery.of(context).size.height * 0.4 : 0,
+                  child: _isCalendarVisible
+                      ? Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: Colors.blueAccent,
+                              onPrimary: Colors.white,
+                              surface: Color(0xFF1E1E1E),
+                              onSurface: Colors.white,
+                            ),
+                            textButtonTheme: TextButtonThemeData(
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.blueAccent,
+                              ),
+                            ),
+                          ),
+                          child: SingleChildScrollView(
+                            child: CalendarDatePicker(
+                              initialDate: _getDateForPage(_currentPage),
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2030),
+                              onDateChanged: (date) {
+                                final today = DateTime.now();
+                                final startOfToday = DateTime(today.year, today.month, today.day);
+                                final startOfSelected = DateTime(date.year, date.month, date.day);
+                                final daysDifference = startOfSelected.difference(startOfToday).inDays;
+                                final targetPage = _initialPage + daysDifference;
+
+                                _pageController.animateToPage(
+                                  targetPage,
+                                  duration: const Duration(milliseconds: 500),
+                                  curve: Curves.easeInOut,
+                                );
+                              },
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    onPageChanged: (page) => setState(() => _currentPage = page),
+                    itemBuilder: (context, index) {
+                      final date = _getDateForPage(index);
+                      return _buildHabitPage(date);
+                    },
+                  ),
+                ),
+              ],
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToAddHabit,
