@@ -4,7 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../models/habit.dart';
 import '../../../services/habit_service.dart';
 import 'add_habit_screen.dart';
-import 'manage_habits_screen.dart';
+import 'add_reminder_screen.dart';
+import 'manage_resources_screen.dart';
+import '../../../models/reminder.dart';
+import '../../../services/reminder_service.dart';
 
 class HabitTrackerScreen extends StatefulWidget {
   const HabitTrackerScreen({super.key});
@@ -15,8 +18,12 @@ class HabitTrackerScreen extends StatefulWidget {
 
 class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   final HabitService _habitService = HabitService();
+  final ReminderService _reminderService = ReminderService();
   List<Habit> _habits = [];
+  List<Reminder> _reminders = [];
+  Map<String, List<Reminder>> _remindersByDate = {};
   bool _isLoading = true;
+  late DateTime _today;
 
   // Track the selected date for horizontal navigation
   late PageController _pageController;
@@ -27,6 +34,8 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _today = DateTime(now.year, now.month, now.day);
     _pageController = PageController(initialPage: _initialPage);
     _loadHabits();
   }
@@ -38,15 +47,37 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   }
 
   Future<void> _loadHabits() async {
-    final habits = await _habitService.loadHabits();
-    setState(() {
-      _habits = habits;
-      _isLoading = false;
-    });
+    try {
+      final habits = await _habitService.loadHabits();
+      final reminders = await _reminderService.loadReminders();
+      
+      // Index reminders by date string "YYYY-MM-DD" for O(1) lookup
+      final Map<String, List<Reminder>> indexedReminders = {};
+      for (var r in reminders) {
+        final dateKey = DateFormat('yyyy-MM-dd').format(r.dateTime);
+        indexedReminders.putIfAbsent(dateKey, () => []).add(r);
+      }
+
+      if (mounted) {
+        setState(() {
+          _habits = habits;
+          _reminders = reminders;
+          _remindersByDate = indexedReminders;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading habits: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   DateTime _getDateForPage(int page) {
-    return DateTime.now().add(Duration(days: page - _initialPage));
+    return _today.add(Duration(days: page - _initialPage));
   }
 
   void _toggleHabit(Habit habit, DateTime date) async {
@@ -77,12 +108,148 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     }
   }
 
+  Future<void> _navigateToAddReminder() async {
+    final result = await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const AddReminderScreen(),
+    );
+
+    if (result != null && result is Reminder) {
+      await _reminderService.addReminder(result);
+      await _loadHabits();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Reminder set for ${DateFormat('MMM d, h:mm a').format(result.dateTime)}'),
+            backgroundColor: Colors.blueAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAddMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildMenuItem(
+              icon: Icons.auto_awesome_rounded,
+              color: Colors.blueAccent,
+              title: 'New Habit',
+              subtitle: 'Build a long-term routine',
+              onTap: () {
+                Navigator.pop(context);
+                _navigateToAddHabit();
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildMenuItem(
+              icon: Icons.notification_important_rounded,
+              color: Colors.orangeAccent,
+              title: 'One-time Reminder',
+              subtitle: 'Task for a specific time',
+              onTap: () {
+                Navigator.pop(context);
+                _navigateToAddReminder();
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuItem({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      tileColor: Colors.white.withValues(alpha: 0.05),
+      leading: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(
+        title,
+        style: GoogleFonts.lexend(color: Colors.white, fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: GoogleFonts.lexend(color: Colors.white38, fontSize: 12),
+      ),
+      trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white12, size: 16),
+    );
+  }
+
   void _navigateToManageHabits() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ManageHabitsScreen()),
+      MaterialPageRoute(builder: (context) => const ManageResourcesScreen()),
     );
     _loadHabits();
+  }
+
+  void _editReminder(Reminder reminder) async {
+    final result = await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AddReminderScreen(reminderToEdit: reminder),
+    );
+
+    if (result != null && result is Reminder) {
+      await _reminderService.updateReminder(result);
+      _loadHabits();
+    }
+  }
+
+  void _deleteReminder(Reminder reminder) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: Text('Delete Reminder?', style: GoogleFonts.lexend(color: Colors.white)),
+        content: Text('Are you sure you want to delete this reminder?',
+            style: GoogleFonts.lexend(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: GoogleFonts.lexend(color: Colors.white38)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: GoogleFonts.lexend(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _reminderService.deleteReminder(reminder.id);
+      _loadHabits();
+    }
   }
 
   @override
@@ -92,15 +259,19 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        title: Text(
+        title: const Text(
           'HabitTracker',
-          style: GoogleFonts.lexend(
+          style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 24,
             color: Colors.white,
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
+            onPressed: _loadHabits,
+          ),
           IconButton(
             icon: Icon(
               _isCalendarVisible ? Icons.calendar_today : Icons.calendar_month,
@@ -165,34 +336,112 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
                       : const SizedBox.shrink(),
                 ),
                 Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    onPageChanged: (page) => setState(() => _currentPage = page),
-                    itemBuilder: (context, index) {
-                      final date = _getDateForPage(index);
-                      return _buildHabitPage(date);
-                    },
+                  child: RefreshIndicator(
+                    onRefresh: _loadHabits,
+                    color: Colors.blueAccent,
+                    backgroundColor: const Color(0xFF1E1E1E),
+                    child: PageView.builder(
+                      controller: _pageController,
+                      onPageChanged: (page) => setState(() => _currentPage = page),
+                      itemBuilder: (context, index) {
+                        final date = _getDateForPage(index);
+                        return _buildHabitPage(date);
+                      },
+                    ),
                   ),
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _navigateToAddHabit,
-        backgroundColor: Colors.blueAccent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add, color: Colors.white, size: 30),
+      floatingActionButton: Theme(
+        data: Theme.of(context).copyWith(
+          hoverColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+        ),
+        child: PopupMenuButton<int>(
+          offset: const Offset(0, -135),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          color: const Color(0xFF252525),
+          elevation: 12,
+          onSelected: (value) {
+            if (value == 1) _navigateToAddHabit();
+            if (value == 2) _navigateToAddReminder();
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 1,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.blueAccent, size: 20),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'New Habit',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 2,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orangeAccent.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.notification_important_rounded, color: Colors.orangeAccent, size: 20),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text(
+                    'Reminder',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.blueAccent,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.add, color: Colors.white, size: 32),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildHabitPage(DateTime date) {
     final weekday = date.weekday;
-    final filtered = _habits.where((h) {
+    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+
+    final filteredHabits = _habits.where((h) {
       if (h.frequencyType == FrequencyType.fixed) {
         return h.fixedDays?.contains(weekday) ?? false;
       }
       return true;
     }).toList();
+
+    final filteredReminders = _remindersByDate[dateKey] ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,7 +454,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
             children: [
               Text(
                 DateFormat('MMMM d').format(date),
-                style: GoogleFonts.lexend(
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -213,7 +462,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
               ),
               Text(
                 DateFormat('EEEE').format(date),
-                style: GoogleFonts.lexend(
+                style: const TextStyle(
                   fontSize: 16,
                   color: Colors.white54,
                 ),
@@ -222,19 +471,116 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        // Habit List
+        // Combined List
         Expanded(
-          child: filtered.isEmpty
+          child: filteredHabits.isEmpty && filteredReminders.isEmpty
               ? _buildEmptyState()
-              : ListView.builder(
+              : ListView(
+                  key: ValueKey('list_${date.toIso8601String()}_${_reminders.length}'),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    return _buildHabitCard(filtered[index], date);
-                  },
+                  children: [
+                    if (filteredHabits.isNotEmpty) ...[
+                      _buildSectionHeader('Habits'),
+                      ...filteredHabits.map((h) => _buildHabitCard(h, date)),
+                    ],
+                    if (filteredReminders.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      _buildSectionHeader('Reminders'),
+                      ...filteredReminders.map((r) => _buildReminderCard(r)),
+                    ],
+                    const SizedBox(height: 80), // Space for FAB
+                  ],
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.white38,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReminderCard(Reminder reminder) {
+    final now = DateTime.now();
+    final isPast = reminder.dateTime.isBefore(now);
+    final timeColor = isPast ? Colors.orangeAccent : Colors.greenAccent;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: reminder.isCompleted ? timeColor.withValues(alpha: 0.3) : Colors.transparent,
+          width: 1.5,
+        ),
+      ),
+      child: ListTile(
+        onTap: () => _editReminder(reminder),
+        onLongPress: () => _deleteReminder(reminder),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: Container(
+          width: 45,
+          height: 45,
+          decoration: BoxDecoration(
+            color: timeColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            Icons.notification_important_rounded,
+            color: timeColor,
+            size: 24,
+          ),
+        ),
+        title: Text(
+          reminder.title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: reminder.isCompleted ? Colors.white38 : Colors.white,
+            decoration: reminder.isCompleted ? TextDecoration.lineThrough : null,
+          ),
+        ),
+        subtitle: Text(
+          DateFormat('h:mm a').format(reminder.dateTime),
+          style: TextStyle(color: timeColor, fontSize: 13),
+        ),
+        trailing: GestureDetector(
+          onTap: () async {
+            setState(() {
+              reminder.isCompleted = !reminder.isCompleted;
+            });
+            await _reminderService.updateReminder(reminder);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: reminder.isCompleted ? timeColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: reminder.isCompleted ? timeColor : Colors.white24,
+                width: 2,
+              ),
+            ),
+            child: reminder.isCompleted
+                ? const Icon(Icons.check, color: Colors.black, size: 20)
+                : null,
+          ),
+        ),
+      ),
     );
   }
 
@@ -269,7 +615,7 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
         ),
         title: Text(
           habit.name,
-          style: GoogleFonts.lexend(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: isCompleted ? Colors.white38 : Colors.white,
@@ -279,11 +625,11 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
         subtitle: isCompleted
             ? Text(
                 'Completed!',
-                style: GoogleFonts.lexend(color: habitColor, fontSize: 13),
+                style: TextStyle(color: habitColor, fontSize: 13),
               )
             : Text(
                 habit.frequencyType == FrequencyType.fixed ? 'Daily Goal' : 'Flex Goal',
-                style: GoogleFonts.lexend(color: Colors.white38, fontSize: 13),
+                style: const TextStyle(color: Colors.white38, fontSize: 13),
               ),
         trailing: GestureDetector(
           onTap: () => _toggleHabit(habit, date),
@@ -309,15 +655,15 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.auto_awesome, size: 64, color: Colors.white10),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Text(
             'A fresh start today!',
-            style: GoogleFonts.lexend(
+            style: TextStyle(
               fontSize: 20,
               color: Colors.white24,
               fontWeight: FontWeight.w500,

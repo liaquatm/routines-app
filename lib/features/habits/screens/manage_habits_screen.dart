@@ -5,7 +5,8 @@ import '../../../services/habit_service.dart';
 import 'add_habit_screen.dart';
 
 class ManageHabitsScreen extends StatefulWidget {
-  const ManageHabitsScreen({super.key});
+  final bool isViewOnly;
+  const ManageHabitsScreen({super.key, this.isViewOnly = false});
 
   @override
   State<ManageHabitsScreen> createState() => _ManageHabitsScreenState();
@@ -23,11 +24,18 @@ class _ManageHabitsScreenState extends State<ManageHabitsScreen> {
   }
 
   Future<void> _loadHabits() async {
-    final habits = await _habitService.loadHabits();
-    setState(() {
-      _habits = habits;
-      _isLoading = false;
-    });
+    try {
+      final habits = await _habitService.loadHabits();
+      setState(() {
+        _habits = habits;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading habits: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _deleteHabit(Habit habit) async {
@@ -79,6 +87,57 @@ class _ManageHabitsScreenState extends State<ManageHabitsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Widget content = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : _habits.isEmpty
+            ? const Center(child: Text('No habits to manage.', style: TextStyle(color: Colors.white38)))
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _habits.length,
+                itemBuilder: (context, index) {
+                  final habit = _habits[index];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E1E),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: ListTile(
+                      leading: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Color(habit.colorValue),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      title: Text(habit.name, style: GoogleFonts.lexend(color: Colors.white, fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        habit.frequencyType == FrequencyType.fixed
+                            ? 'Fixed Days'
+                            : 'Flexible: ${habit.flexibleCount}x / week',
+                        style: GoogleFonts.lexend(color: Colors.white38, fontSize: 12),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_rounded, color: Colors.blueAccent, size: 20),
+                            onPressed: () => _editHabit(habit),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_rounded, color: Colors.redAccent, size: 20),
+                            onPressed: () => _deleteHabit(habit),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+
+    if (widget.isViewOnly) return content;
+
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
@@ -86,54 +145,7 @@ class _ManageHabitsScreenState extends State<ManageHabitsScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _habits.isEmpty
-              ? const Center(child: Text('No habits to manage.', style: TextStyle(color: Colors.white38)))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _habits.length,
-                  itemBuilder: (context, index) {
-                    final habit = _habits[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E1E1E),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: Color(habit.colorValue),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        title: Text(habit.name, style: GoogleFonts.lexend(color: Colors.white, fontWeight: FontWeight.w600)),
-                        subtitle: Text(
-                          habit.frequencyType == FrequencyType.fixed
-                              ? 'Fixed Days'
-                              : 'Flexible: ${habit.flexibleCount}x / week',
-                          style: GoogleFonts.lexend(color: Colors.white38, fontSize: 12),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_rounded, color: Colors.blueAccent, size: 20),
-                              onPressed: () => _editHabit(habit),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_rounded, color: Colors.redAccent, size: 20),
-                              onPressed: () => _deleteHabit(habit),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+      body: content,
     );
   }
 }

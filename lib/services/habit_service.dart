@@ -13,35 +13,33 @@ class HabitService {
 
     // 1. Get all habit definitions
     final List<Map<String, dynamic>> habitMaps = await db.query('habit_definitions');
+    
+    // 2. Get ALL logs in one go to avoid N+1 query problem
+    final List<Map<String, dynamic>> allLogMaps = await db.query('habit_logs');
+
+    // Group logs by habitId
+    Map<String, List<DateTime>> logsByHabit = {};
+    for (var log in allLogMaps) {
+      final habitId = log['habitId'] as String;
+      final date = DateTime.parse(log['date'] as String);
+      logsByHabit.putIfAbsent(habitId, () => []).add(date);
+    }
 
     List<Habit> habits = [];
 
     for (var habitMap in habitMaps) {
       final habitId = habitMap['id'] as String;
+      final completedDays = logsByHabit[habitId] ?? [];
 
-      // 2. Get all completion logs for this specific habit
-      final List<Map<String, dynamic>> logMaps = await db.query(
-        'habit_logs',
-        where: 'habitId = ?',
-        whereArgs: [habitId],
-      );
-
-      // 3. Convert those log rows into a list of DateTime objects
-      List<DateTime> completedDays = logMaps.map((log) {
-        return DateTime.parse(log['date'] as String);
-      }).toList();
-
-      // 4. Create the Habit object and add it to our list
-      // We convert the 'fixedDays' string back into a List<int>
       habits.add(Habit(
         id: habitId,
         name: habitMap['name'],
         description: habitMap['description'],
         iconName: habitMap['iconName'] ?? 'star',
         colorValue: habitMap['colorValue'],
-        frequencyType: FrequencyType.values[habitMap['frequencyType']],
+        frequencyType: FrequencyType.values[habitMap['frequencyType'] ?? 0],
         flexibleCount: habitMap['flexibleCount'],
-        fixedDays: habitMap['fixedDays'] != null && habitMap['fixedDays'].isNotEmpty
+        fixedDays: habitMap['fixedDays'] != null && habitMap['fixedDays'].toString().isNotEmpty
             ? (habitMap['fixedDays'] as String).split(',').map(int.parse).toList()
             : null,
         completedDays: completedDays,

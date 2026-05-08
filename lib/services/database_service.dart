@@ -23,8 +23,9 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
       onConfigure: (db) async {
         // This ensures that deleting a habit automatically deletes its logs
         await db.execute('PRAGMA foreign_keys = ON');
@@ -37,24 +38,21 @@ class DatabaseService {
     final batch = db.batch();
 
     // --- HABIT FEATURE TABLES ---
-
-    // Stores the general info about a habit (Name, Color, etc.)
     batch.execute('''
-      CREATE TABLE habit_definitions (
+      CREATE TABLE IF NOT EXISTS habit_definitions (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
         iconName TEXT,
         colorValue INTEGER,
         frequencyType INTEGER,
-        fixedDays TEXT, -- We will store the list as a string like "1,2,3"
+        fixedDays TEXT,
         flexibleCount INTEGER
       )
     ''');
 
-    // Stores every time a habit is completed.
     batch.execute('''
-      CREATE TABLE habit_logs (
+      CREATE TABLE IF NOT EXISTS habit_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         habitId TEXT NOT NULL,
         date TEXT NOT NULL,
@@ -62,17 +60,34 @@ class DatabaseService {
       )
     ''');
 
+    // --- REMINDER FEATURE TABLES ---
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS reminders (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        dateTime TEXT NOT NULL,
+        isCompleted INTEGER DEFAULT 0
+      )
+    ''');
+
     await batch.commit();
-
-    // --- FUTURE: WORKOUT TABLES ---
-    // We will add 'workout_definitions' and 'workout_logs' here later.
-
-    // --- FUTURE: BUDGET TABLES ---
-    // We will add 'budget_categories' and 'transactions' here later.
   }
 
   Future close() async {
     final db = await instance.database;
     db.close();
+  }
+
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS reminders (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          dateTime TEXT NOT NULL,
+          isCompleted INTEGER DEFAULT 0
+        )
+      ''');
+    }
   }
 }
