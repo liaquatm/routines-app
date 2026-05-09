@@ -211,6 +211,47 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     _loadHabits();
   }
 
+  void _editHabit(Habit habit) async {
+    final result = await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AddHabitScreen(habitToEdit: habit),
+    );
+
+    if (result != null && result is Habit) {
+      await _habitService.updateHabit(result);
+      _loadHabits();
+    }
+  }
+
+  void _deleteHabit(Habit habit) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: Text('Delete Habit?', style: GoogleFonts.lexend(color: Colors.white)),
+        content: Text('Are you sure you want to delete "${habit.name}"? All progress will be lost.',
+            style: GoogleFonts.lexend(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: GoogleFonts.lexend(color: Colors.white38)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: GoogleFonts.lexend(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _habitService.deleteHabit(habit.id);
+      _loadHabits();
+    }
+  }
+
   void _editReminder(Reminder reminder) async {
     final result = await showModalBottomSheet(
       context: context,
@@ -599,6 +640,8 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
         ),
       ),
       child: ListTile(
+        onTap: () => _editHabit(habit),
+        onLongPress: () => _deleteHabit(habit),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: Container(
           width: 45,
