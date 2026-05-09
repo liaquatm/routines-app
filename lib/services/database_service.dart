@@ -74,8 +74,10 @@ class DatabaseService {
   }
 
   Future close() async {
-    final db = await instance.database;
-    db.close();
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
   }
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {

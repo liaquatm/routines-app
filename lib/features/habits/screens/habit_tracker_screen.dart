@@ -211,6 +211,14 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
     _loadHabits();
   }
 
+  void _navigateToSyncTab() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ManageResourcesScreen(initialIndex: 2)),
+    );
+    _loadHabits();
+  }
+
   void _editHabit(Habit habit) async {
     final result = await showModalBottomSheet(
       context: context,
@@ -698,18 +706,27 @@ class _HabitTrackerScreenState extends State<HabitTrackerScreen> {
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.auto_awesome, size: 64, color: Colors.white10),
-          SizedBox(height: 16),
-          Text(
+          const Icon(Icons.auto_awesome, size: 64, color: Colors.white10),
+          const SizedBox(height: 16),
+          const Text(
             'A fresh start today!',
             style: TextStyle(
               fontSize: 20,
               color: Colors.white24,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 24),
+          TextButton.icon(
+            onPressed: _navigateToSyncTab,
+            icon: const Icon(Icons.cloud_download_outlined, color: Colors.blueAccent),
+            label: const Text(
+              'Restore data from Google Drive',
+              style: TextStyle(color: Colors.blueAccent),
             ),
           ),
         ],
