@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../features/habits/screens/habit_tracker_screen.dart';
 import '../features/workouts/screens/workout_planning_screen.dart';
-import '../features/budget/screens/budget_tracker_screen.dart';
+import '../features/finance/screens/finance_tracker_screen.dart';
 
 /// The MainNavigationScreen is the "Skeleton" of the app.
 /// It holds the Bottom Navigation Bar and decides which screen to show.
@@ -21,7 +21,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = [
     const HabitTrackerScreen(),
     const WorkoutPlanningScreen(),
-    const BudgetTrackerScreen(),
+    const FinanceTrackerScreen(),
   ];
 
   /// Changes the visible screen when a user taps a navigation icon.
@@ -60,7 +60,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.account_balance_wallet_rounded),
               activeIcon: Icon(Icons.account_balance_wallet_rounded),
-              label: 'Budget',
+              label: 'Finance',
             ),
           ],
           currentIndex: _selectedIndex,

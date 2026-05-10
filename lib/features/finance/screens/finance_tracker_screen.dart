@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class BudgetTrackerScreen extends StatelessWidget {
-  const BudgetTrackerScreen({super.key});
+class FinanceTrackerScreen extends StatelessWidget {
+  const FinanceTrackerScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +12,7 @@ class BudgetTrackerScreen extends StatelessWidget {
         elevation: 0,
         backgroundColor: Colors.transparent,
         title: Text(
-          'Budget',
+          'Finance',
           style: GoogleFonts.lexend(
             fontWeight: FontWeight.w700,
             fontSize: 24,
