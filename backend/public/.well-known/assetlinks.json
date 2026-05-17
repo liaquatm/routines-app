@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.personal.habittracker.my_habit_tracker",
+      "sha256_cert_fingerprints": [
+        "06:4F:7F:DD:9B:A0:8C:FC:06:0B:3E:8E:97:A1:48:AD:77:50:5D:A6:1B:F2:9D:8E:F3:50:CF:E1:E3:FF:6C:91"
+      ]
+    }
+  }
+]

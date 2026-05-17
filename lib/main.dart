@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'navigation/main_nav_bar.dart';
 import 'services/notification_service.dart';
 import 'services/google_drive_service.dart';
+import 'services/finance_service.dart';
 import 'package:workmanager/workmanager.dart';
 
 @pragma('vm:entry-point')
@@ -19,6 +20,11 @@ void callbackDispatcher() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Pre-initialize FinanceService to ensure Plaid listeners are active
+  // as soon as the app process is created/resumed.
+  FinanceService.instance;
+
   await NotificationService().init();
 
   // Initialize Workmanager for background backups

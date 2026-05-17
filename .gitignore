@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Backend / Node.js
+**/node_modules/
+backend/.env
+backend/functions/.env
+firebase-debug.log
+.firebase/

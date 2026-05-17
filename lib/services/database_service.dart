@@ -23,7 +23,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onConfigure: (db) async {
@@ -70,6 +70,37 @@ class DatabaseService {
       )
     ''');
 
+    // --- FINANCE FEATURE TABLES ---
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS finance_accounts (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        officialName TEXT,
+        mask TEXT,
+        type TEXT,
+        subtype TEXT,
+        balanceCurrent REAL,
+        balanceAvailable REAL
+      )
+    ''');
+
+    batch.execute('''
+      CREATE TABLE IF NOT EXISTS finance_transactions (
+        id TEXT PRIMARY KEY,
+        accountId TEXT NOT NULL,
+        amount REAL NOT NULL,
+        date TEXT NOT NULL,
+        name TEXT NOT NULL,
+        category TEXT,
+        pending INTEGER DEFAULT 0,
+        FOREIGN KEY (accountId) REFERENCES finance_accounts (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Indexes for finance performance
+    batch.execute('CREATE INDEX IF NOT EXISTS idx_transactions_date ON finance_transactions (date)');
+    batch.execute('CREATE INDEX IF NOT EXISTS idx_transactions_accountId ON finance_transactions (accountId)');
+
     await batch.commit();
   }
 
@@ -90,6 +121,41 @@ class DatabaseService {
           isCompleted INTEGER DEFAULT 0
         )
       ''');
+    }
+    
+    if (oldVersion < 3) {
+      final batch = db.batch();
+      
+      batch.execute('''
+        CREATE TABLE IF NOT EXISTS finance_accounts (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          officialName TEXT,
+          mask TEXT,
+          type TEXT,
+          subtype TEXT,
+          balanceCurrent REAL,
+          balanceAvailable REAL
+        )
+      ''');
+
+      batch.execute('''
+        CREATE TABLE IF NOT EXISTS finance_transactions (
+          id TEXT PRIMARY KEY,
+          accountId TEXT NOT NULL,
+          amount REAL NOT NULL,
+          date TEXT NOT NULL,
+          name TEXT NOT NULL,
+          category TEXT,
+          pending INTEGER DEFAULT 0,
+          FOREIGN KEY (accountId) REFERENCES finance_accounts (id) ON DELETE CASCADE
+        )
+      ''');
+
+      batch.execute('CREATE INDEX IF NOT EXISTS idx_transactions_date ON finance_transactions (date)');
+      batch.execute('CREATE INDEX IF NOT EXISTS idx_transactions_accountId ON finance_transactions (accountId)');
+      
+      await batch.commit();
     }
   }
 }
