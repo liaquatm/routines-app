@@ -3,16 +3,31 @@ const { defineSecret } = require('firebase-functions/params');
 const { Configuration, PlaidApi, PlaidEnvironments } = require('plaid');
 const cors = require('cors')({ origin: true });
 
-// Define secrets that will be managed via Google Cloud / Firebase Secret Manager
 const plaidClientId = defineSecret('PLAID_CLIENT_ID');
 const plaidSecret = defineSecret('PLAID_SECRET');
 
+// In a full production app, this would also be a defineSecret()
+// For this stage, a hardcoded backend key provides instant security against unauthorized URL calls.
+const BACKEND_API_KEY = 'habit-tracker-secure-829374';
+
 /**
- * Helper to initialize the Plaid client with secrets
+ * Security Helper: Validates that the request is coming from our app
  */
+function validateRequest(req, res) {
+  // Check headers case-insensitively
+  const apiKey = req.headers['x-api-key'] || req.headers['X-API-KEY'] || req.headers['X-Api-Key'];
+
+  if (apiKey !== BACKEND_API_KEY) {
+    console.warn(`Unauthorized access attempt. Provided key: ${apiKey ? apiKey.substring(0, 4) + '...' : 'NONE'}`);
+    res.status(401).json({ error: 'Unauthorized: Missing or invalid API Key' });
+    return false;
+  }
+  return true;
+}
+
 function getPlaidClient(clientId, secret) {
   const configuration = new Configuration({
-    basePath: PlaidEnvironments.sandbox, // Change to 'production' for live
+    basePath: PlaidEnvironments.sandbox, // NOTE: Change to PlaidEnvironments.production for real banks
     baseOptions: {
       headers: {
         'PLAID-CLIENT-ID': clientId,
@@ -28,6 +43,8 @@ function getPlaidClient(clientId, secret) {
  */
 exports.createLinkToken = onRequest({ secrets: [plaidClientId, plaidSecret] }, (req, res) => {
   cors(req, res, async () => {
+    if (!validateRequest(req, res)) return;
+
     try {
       if (!plaidClientId.value() || !plaidSecret.value()) {
         throw new Error('Plaid secrets are not configured');
@@ -44,10 +61,7 @@ exports.createLinkToken = onRequest({ secrets: [plaidClientId, plaidSecret] }, (
       res.json(response.data);
     } catch (error) {
       console.error('Plaid Error Details:', error.response?.data || error.message);
-      res.status(500).json({
-        error: 'Failed to create link token',
-        details: error.response?.data || error.message
-      });
+      res.status(500).json({ error: 'Failed to create link token' });
     }
   });
 });
@@ -57,9 +71,8 @@ exports.createLinkToken = onRequest({ secrets: [plaidClientId, plaidSecret] }, (
  */
 exports.exchangePublicToken = onRequest({ secrets: [plaidClientId, plaidSecret] }, (req, res) => {
   cors(req, res, async () => {
-    if (req.method !== 'POST') {
-      return res.status(405).send('Method Not Allowed');
-    }
+    if (!validateRequest(req, res)) return;
+    if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
     const { public_token } = req.body;
     try {
@@ -84,26 +97,24 @@ exports.exchangePublicToken = onRequest({ secrets: [plaidClientId, plaidSecret] 
  */
 exports.getFinanceData = onRequest({ secrets: [plaidClientId, plaidSecret] }, (req, res) => {
   cors(req, res, async () => {
-    if (req.method !== 'POST') {
-      return res.status(405).send('Method Not Allowed');
-    }
+    if (!validateRequest(req, res)) return;
+    if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
-    const { access_token } = req.body;
+    const { access_token, days } = req.body;
     try {
       const client = getPlaidClient(plaidClientId.value(), plaidSecret.value());
 
-      // Fetch accounts
       const accountsResponse = await client.accountsGet({
         access_token: access_token,
       });
 
-      // Fetch transactions for the last 30 days
       const now = new Date();
-      const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+      const fetchDays = days || 30;
+      const startDate = new Date(now.getTime() - (fetchDays * 24 * 60 * 60 * 1000));
 
       const transactionsResponse = await client.transactionsGet({
         access_token: access_token,
-        start_date: thirtyDaysAgo.toISOString().split('T')[0],
+        start_date: startDate.toISOString().split('T')[0],
         end_date: now.toISOString().split('T')[0],
       });
 
